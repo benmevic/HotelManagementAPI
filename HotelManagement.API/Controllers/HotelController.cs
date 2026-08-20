@@ -25,23 +25,48 @@ namespace HotelManagement.API.Controllers
             return int.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
         }
 
-        // GET: api/Hotel  (herkes görebilir, auth gerekmez)
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<HotelResponseDto>>> GetHotels()
+     [HttpGet]
+public async Task<IActionResult> GetHotels(
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10)
+{
+    if (page < 1 || pageSize < 1 || pageSize > 50)
+    {
+        return BadRequest(new
         {
-            var hotels = await _context.Hotels
-                .Select(h => new HotelResponseDto
-                {
-                    Id = h.Id,
-                    Name = h.Name,
-                    Address = h.Address,
-                    Description = h.Description,
-                    OwnerUserId = h.OwnerUserId
-                })
-                .ToListAsync();
+            message = "Sayfa numarası en az 1, sayfa boyutu 1-50 arasında olmalıdır."
+        });
+    }
 
-            return Ok(hotels);
-        }
+    var query = _context.Hotels
+        .AsNoTracking()
+        .OrderBy(h => h.Id);
+
+    int totalCount = await query.CountAsync();
+
+    var hotels = await query
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
+        .Select(h => new HotelResponseDto
+        {
+            Id = h.Id,
+            Name = h.Name,
+            Address = h.Address,
+            Description = h.Description,
+            OwnerUserId = h.OwnerUserId
+        })
+        .ToListAsync();
+
+    return Ok(new
+    {
+        page,
+        pageSize,
+        totalCount,
+        totalPages = (int)Math.Ceiling(
+            totalCount / (double)pageSize),
+        data = hotels
+    });
+}
 
         // GET: api/Hotel/5
         [HttpGet("{id}")]

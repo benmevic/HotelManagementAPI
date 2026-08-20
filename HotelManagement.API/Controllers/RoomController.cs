@@ -25,28 +25,55 @@ namespace HotelManagement.API.Controllers
             return int.Parse(User.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
         }
 
-        // GET: api/Room  (herkes görebilir)
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<RoomResponseDto>>> GetRooms([FromQuery] int? hotelId)
+public async Task<IActionResult> GetRooms(
+    [FromQuery] int? hotelId,
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 10)
+{
+    if (page < 1 || pageSize < 1 || pageSize > 50)
+    {
+        return BadRequest(new
         {
-            var query = _context.Rooms.AsQueryable();
+            message = "Sayfa numarası en az 1, sayfa boyutu 1-50 arasında olmalıdır."
+        });
+    }
 
-            if (hotelId.HasValue)
-                query = query.Where(r => r.HotelId == hotelId.Value);
+    var query = _context.Rooms
+        .AsNoTracking()
+        .AsQueryable();
 
-            var rooms = await query
-                .Select(r => new RoomResponseDto
-                {
-                    Id = r.Id,
-                    RoomType = r.RoomType,
-                    Capacity = r.Capacity,
-                    PricePerNight = r.PricePerNight,
-                    HotelId = r.HotelId
-                })
-                .ToListAsync();
+    if (hotelId.HasValue)
+    {
+        query = query.Where(r => r.HotelId == hotelId.Value);
+    }
 
-            return Ok(rooms);
-        }
+    int totalCount = await query.CountAsync();
+
+    var rooms = await query
+        .OrderBy(r => r.Id)
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
+        .Select(r => new RoomResponseDto
+        {
+            Id = r.Id,
+            RoomType = r.RoomType,
+            Capacity = r.Capacity,
+            PricePerNight = r.PricePerNight,
+            HotelId = r.HotelId
+        })
+        .ToListAsync();
+
+    return Ok(new
+    {
+        page,
+        pageSize,
+        totalCount,
+        totalPages = (int)Math.Ceiling(
+            totalCount / (double)pageSize),
+        data = rooms
+    });
+}
 
         // GET: api/Room/5
         [HttpGet("{id}")]
