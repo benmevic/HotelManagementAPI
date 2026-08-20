@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using HotelManagement.API.Services;
+using HotelManagement.API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,11 +60,22 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    app.MapGet("/api/test-error", () =>
+    {
+        throw new InvalidOperationException(
+            "Global exception middleware test hatası.");
+    })
+    .WithTags("Test");
 }
+
 
 app.UseHttpsRedirection();
 
